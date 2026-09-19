@@ -9,7 +9,7 @@
 
 [CV 协议] 所有候选共用同一折划分; 载波等权 1/122; 类权重 use_weights=False (w_l=N/(L·N_l), 开关由 CV 决定)
 [选择规则] argmin mae_ord, 平手(Δ<0.001)依次 acc > acc±1 > 复杂度(无参核优先) > 大theta
-[搜索空间] theta∈[1.0, 0.5, 0.0] × 五核(K3 beta/K4 q/K5 beta 网格) × 类权重开关; 参照 R1=gamma_F(theta=1)同流程
+[搜索空间] 特征∈{lambda1, ||H||_F^2} × theta∈[1.0, 0.5, 0.0] × 五核(K3 beta/K4 q/K5 beta 网格) × 类权重开关; 参照 R1=gamma_F(||H||_F^2/theta=1) 同流程
 
 五核最优 + 参照（每行=该核在 theta/参数上的 CV 最优, mean±std）:
   [eig th=0] K1_lin   线性核                     w=off acc=0.4214±0.0092 mae_ord=0.7560±0.0133 acc1=0.8408
@@ -20,11 +20,13 @@
   [gamF th=1] K3_eesm  EESM指数核 beta_EESM=1.25893 w=off acc=0.3787±0.0091 mae_ord=0.8465±0.0157 acc1=0.8100
 
 逐层消融（每步只动一层, 完整见 ablation_p2.csv）:
-  P1口径: gamma_F + 算术平均               theta=1 K1_lin                  acc=0.3763 mae_ord=0.8520±0.0148 acc1=0.8077
-  gamma_F + 五核寻优（聚合层）                theta=1 K3_eesm  beta_EESM=1.25893 acc=0.3787 mae_ord=0.8465±0.0157 acc1=0.8100
-  lambda1/sigma^2 + 五核（特征层）          theta=1 K5_plus  beta_plus=0.01 acc=0.3738 mae_ord=0.8529±0.0169 acc1=0.8093
-  lambda1/sigma + 五核（半归一化）           theta=0.5 K4_pow   q=2            acc=0.4074 mae_ord=0.7879±0.0138 acc1=0.8283
-  lambda1 + 五核（增益功率口径）               theta=0 K3_eesm  beta_EESM=5011.87 acc=0.4215 mae_ord=0.7560±0.0132 acc1=0.8408
+  P1口径: gamma_F + 算术平均(θ=1)          theta=1 K1_lin                  acc=0.3763 mae_ord=0.8520±0.0148 acc1=0.8077
+  gamma_F + 五核(θ=1, 聚合层)             theta=1 K3_eesm  beta_EESM=1.25893 acc=0.3787 mae_ord=0.8465±0.0157 acc1=0.8100
+  gamma_F + 五核(θ=0.5, 半归一化)          theta=0.5 K3_eesm  beta_EESM=2.51189 acc=0.4062 mae_ord=0.7771±0.0136 acc1=0.8372
+  gamma_F + 五核(θ=0, 不除噪声)            theta=0 K3_eesm  beta_EESM=0.0398107 acc=0.4153 mae_ord=0.7639±0.0133 acc1=0.8398
+  lambda1/sigma^2 + 五核(θ=1, 特征层)     theta=1 K5_plus  beta_plus=0.01 acc=0.3738 mae_ord=0.8529±0.0169 acc1=0.8093
+  lambda1/sigma + 五核(θ=0.5, 半归一化)    theta=0.5 K4_pow   q=2            acc=0.4074 mae_ord=0.7879±0.0138 acc1=0.8283
+  lambda1 + 五核(θ=0, 增益功率口径)          theta=0 K3_eesm  beta_EESM=5011.87 acc=0.4215 mae_ord=0.7560±0.0132 acc1=0.8408
 
 主模型: theta=0, K3_eesm (EESM指数核), beta_EESM=5011.87, weights=off
   CV: acc=0.4215±0.0092  mae_ord=0.7560±0.0132  acc1=0.8408  rmse=53.49  r2=0.7030
@@ -36,4 +38,4 @@
 各块 level(档位索引): [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 valid 预测档位分布: {137.6: 96, 206.5: 3733, 275.3: 3085, 309.7: 6963, 344.1: 2852, 412.9: 42, 458.8: 3161, 516.2: 53, 573.5: 384}
 
-耗时 35.9s
+耗时 79.6s

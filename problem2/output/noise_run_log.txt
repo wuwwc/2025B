@@ -1,0 +1,8 @@
+﻿[diag] 鏁翠綋: sp(log位1,MCS)=0.793 sp(NF,MCS)=0.647 sp(log位1,NF)=0.680
+[OOF] N0 mae=0.7561 acc=0.4214 | N1 mae=0.8617 acc=0.3701 | N05 mae=0.7890
+[rank-flip] all=0.0677 within=0.0653 cross=0.0689 adj=0.0971
+[bootstrap] 螖10=+0.1057 95%CI=[+0.0995,+0.1122] P(螖>0)=1.000
+[grouped-CV] N0 mae=0.9159 N1 mae=0.9138
+[NS] 鎵撲贡鍣０ mae 涓綅=0.8364; N1=0.8617; NS<=N1 娆℃暟=30/30
+[verdict] 鏃犳晥/鍙ｅ緞涓嶅尮閰? (NC==N0 鑷: True)
+鑰楁椂 13.4s

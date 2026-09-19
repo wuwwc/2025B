@@ -6,7 +6,8 @@
 Stage2 参数 CV: theta∈{1,0.5,0} × 五核(K3 beta / K4 q / K5 beta 网格) × 类权重开关,
 5-fold 分层(seed=42), 所有候选共用同一折。
 Stage4 选择: argmin mae_ord, 接近平手依次比 acc、acc±1、复杂度(无参核优先)、再偏好大 theta。
-参照 R1: 同一五核流程作用于问题1口径 gamma_F=||H||_F^2/sigma^2 (theta=1), 量化特征替换增益。
+参照 R1: 同一五核流程作用于问题1口径 gamma_F=||H||_F^2/sigma^2 (theta=1), 量化特征替换增益;
+         gamF 特征亦扫 theta∈{1,0.5,0} 以补全消融网格（R1 仍取 theta=1 切片作为问题1口径基线）。
 Stage5: 训练集 A 全量重拟合 -> 预测数据集 B(valid)。另输出逐层消融表 ablation_p2.csv。
 """
 import io
@@ -117,12 +118,13 @@ def main():
     gF_va = EF.total_power_sinr(valid["H"], valid["noise_floor"])
     sigma2_tr = EF.noise_sigma2(train["noise_floor"])
     sigma2_va = EF.noise_sigma2(valid["noise_floor"])
+    fro_tr = EF.total_power_raw(train["H"])          # ||H||_F^2 不除噪声, 供 gamF 广义 theta 扫描
 
     def mk_eig(th):
         return EF.generalized_input(lam1, sigma2_tr, th)
 
     def mk_gamF(th):
-        return gF_tr                                    # 参照固定为标准 SINR 口径 theta=1
+        return EF.generalized_input(fro_tr, sigma2_tr, th)   # ||H||_F^2/(sigma^2)^theta; th=1 即问题1 gamma_F
 
     stage0 = EF.stage0_report({"train": (lam1, lam2, x_tr, gF_tr),
                                "valid": (lam1_v, lam2_v, x_va, gF_va)},
@@ -162,9 +164,9 @@ def main():
     else:
         rows_eig = rows_off
 
-    # 参照 R1: 同一五核流程作用于 gamma_F（问题1 口径, theta=1）
-    print("=== reference R1: same pipeline on gamma_F ===")
-    rows_gF = search_grid(mk_gamF, [1.0], cls_tr, levels, folds, w_samp if use_w else None, "gamF")
+    # 参照 gamF: 同一五核流程作用于 ||H||_F^2 广义口径 theta∈{1,0.5,0}（theta=1 即问题1 gamma_F=R1）
+    print("=== reference gamF: same pipeline on ||H||_F^2 across theta ===")
+    rows_gF = search_grid(mk_gamF, C2.THETA_GRID, cls_tr, levels, folds, w_samp if use_w else None, "gamF")
     for r in rows_gF:
         print(fmt_row(r))
 
@@ -181,7 +183,7 @@ def main():
     # ---- Stage 4: 模型比较与选择 ----
     print("=== Stage 4: model comparison ===")
     kb = kernel_bests(rows_eig)
-    best_r1 = pick_best(rows_gF)
+    best_r1 = pick_best([r for r in rows_gF if r["theta"] == 1.0])   # R1 固定为问题1口径 gamma_F(theta=1)
     comp = pd.DataFrame([*kb.values(), best_r1])
     comp = comp[["feature", "theta", "kernel", "kernel_label", "param", "param_value", "weights",
                  "acc", "acc_std", "mae_ord", "mae_ord_std", "acc1", "acc1_std", "rmse", "r2"]]
@@ -193,13 +195,22 @@ def main():
         "主模型 mae_ord 劣于问题1口径参照, 与 spec 假设不符（仍需如实报告）"
     print(f"[select] best: {fmt_row(best)}")
 
-    # ---- 逐层消融表（论文用）: 每步只动一层 ----
+    # ---- 逐层消融表（论文用）: 完整 2×3 网格（特征×theta）, 每步只动一层 ----
+    def gbF(th):
+        return pick_best([r for r in rows_gF if r["theta"] == th])
+
+    def gEig(th):
+        return pick_best([r for r in rows_eig if r["theta"] == th])
+
     abl_rows = [
-        ([r for r in rows_gF if r["kernel"] == "K1_lin"][0], "P1口径: gamma_F + 算术平均"),
-        (best_r1, "gamma_F + 五核寻优（聚合层）"),
-        (pick_best([r for r in rows_eig if r["theta"] == 1.0]), r"lambda1/sigma^2 + 五核（特征层）"),
-        (pick_best([r for r in rows_eig if r["theta"] == 0.5]), r"lambda1/sigma + 五核（半归一化）"),
-        (pick_best([r for r in rows_eig if r["theta"] == 0.0]), r"lambda1 + 五核（增益功率口径）"),
+        ([r for r in rows_gF if r["theta"] == 1.0 and r["kernel"] == "K1_lin"][0],
+         "P1口径: gamma_F + 算术平均(θ=1)"),
+        (gbF(1.0), "gamma_F + 五核(θ=1, 聚合层)"),
+        (gbF(0.5), "gamma_F + 五核(θ=0.5, 半归一化)"),
+        (gbF(0.0), "gamma_F + 五核(θ=0, 不除噪声)"),
+        (gEig(1.0), r"lambda1/sigma^2 + 五核(θ=1, 特征层)"),
+        (gEig(0.5), r"lambda1/sigma + 五核(θ=0.5, 半归一化)"),
+        (gEig(0.0), r"lambda1 + 五核(θ=0, 增益功率口径)"),
     ]
     abl = pd.DataFrame([{**{"step": s}, **{k: r[k] for k in
                          ("feature", "theta", "kernel", "param", "param_value", "weights",
@@ -249,7 +260,8 @@ def main():
     L.append(f"[CV 协议] 所有候选共用同一折划分; 载波等权 1/{C1.N_SUBCARRIERS}; 类权重 use_weights={use_w}"
              f" (w_l=N/(L·N_l), 开关由 CV 决定)")
     L.append(f"[选择规则] argmin mae_ord, 平手(Δ<{C2.TIE_TOL_MAE:g})依次 acc > acc±1 > 复杂度(无参核优先) > 大theta")
-    L.append(f"[搜索空间] theta∈{C2.THETA_GRID} × 五核(K3 beta/K4 q/K5 beta 网格) × 类权重开关; 参照 R1=gamma_F(theta=1)同流程")
+    L.append(f"[搜索空间] 特征∈{{lambda1, ||H||_F^2}} × theta∈{C2.THETA_GRID} × 五核(K3 beta/K4 q/K5 beta 网格) × 类权重开关;"
+             f" 参照 R1=gamma_F(||H||_F^2/theta=1) 同流程")
     L.append("")
     L.append("五核最优 + 参照（每行=该核在 theta/参数上的 CV 最优, mean±std）:")
     for r in comp.itertuples(index=False):

@@ -1,0 +1,16 @@
+﻿=== 鍚勭壒寰侀噰绾虫牳锛埪?.3 鏄捐憲鎬у垽鎹級===
+  lam1  -> K1_lin   mae=0.7561 acc=0.4214 acc1=0.8408
+  lam2  -> K5_plus  mae=0.7383 acc=0.4398 acc1=0.8474
+  geo   -> K1_lin   mae=0.7129 acc=0.4498 acc1=0.8592
+  fro   -> K1_lin   mae=0.7661 acc=0.4111 acc1=0.8406
+
+鏈€缁堟ā鍨? feature=geo kernel=K1_lin OOF mae=0.7129
+=== 搂9 鑷 ===
+  [OK] finite_features
+  [OK] scale_positive
+  [OK] K4_q1_eq_K1
+  [OK] scale_invariance
+  [OK] no_overflow_grid
+  [OK] B_rows_match
+  [OK] pred_in_levels
+鑰楁椂 366.9s

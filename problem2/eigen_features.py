@@ -15,6 +15,21 @@ import config as C1             # problem1/config：系统常量与噪声口径
 
 
 # ---------------- Stage 0/1：主特征模态 SINR ----------------
+def eigenvalues(H):
+    """逐载波闭式计算 G=HH^H 的两特征值（不做 SVD, 全向量化）。
+
+    H: (N,K,2,4) complex -> (lam1, lam2): 各 (N,K), 满足 lam1>=lam2>=0, lam1+lam2=||H||_F^2。
+    2x2 Gram 用闭式公式 lam=(tr±sqrt(tr^2-4det))/2, 根号内非负截断保证有限且实。
+    """
+    G = np.matmul(H, H.conj().transpose(0, 1, 3, 2))          # (N,K,2,2) = H H^H
+    t = G[..., 0, 0].real + G[..., 1, 1].real                 # tr = ||H||_F^2
+    d = G[..., 0, 0].real * G[..., 1, 1].real - np.abs(G[..., 0, 1]) ** 2   # det G (实)
+    disc = np.sqrt(np.maximum(t * t - 4.0 * d, 0.0))
+    lam1 = 0.5 * (t + disc)
+    lam2 = np.maximum(0.5 * (t - disc), 0.0)
+    return lam1, lam2
+
+
 def principal_eigenmode_sinr(H, noise_floor):
     """逐载波闭式计算主特征模态 SINR。
 
@@ -23,15 +38,36 @@ def principal_eigenmode_sinr(H, noise_floor):
       lam1/lam2: (N,122) 每载波 HH^H 的两特征值（lam1>=lam2>=0, lam1+lam2=||H||_F^2）
       x = lam1 / sigma_n^2: (N,122) 线性域主特征模态 SINR（spec §5）
     """
-    G = np.matmul(H, H.conj().transpose(0, 1, 3, 2))          # (N,122,2,2) = H H^H
-    t = G[..., 0, 0].real + G[..., 1, 1].real                 # tr = ||H||_F^2
-    d = G[..., 0, 0].real * G[..., 1, 1].real - np.abs(G[..., 0, 1]) ** 2   # det G (实)
-    disc = np.sqrt(np.maximum(t * t - 4.0 * d, 0.0))
-    lam1 = 0.5 * (t + disc)
-    lam2 = 0.5 * (t - disc)
+    lam1, lam2 = eigenvalues(H)
     sigma2 = noise_sigma2(noise_floor)
     x = lam1 / sigma2[:, None]
     return lam1, lam2, x
+
+
+def carrier_features(H):
+    """载波级候选特征 dict：lam1, lam2, geo=sqrt(lam1*lam2)=|detH|, fro=||H||_F^2。各 (N,K)。
+
+    geo 为双模态几何平均（探针显示其对 MCS 排序能力优于 lam1, 且与 lam1 正交）。
+    """
+    lam1, lam2 = eigenvalues(H)
+    return {"lam1": lam1, "lam2": lam2,
+            "geo": np.sqrt(np.maximum(lam1 * lam2, 0.0)),
+            "fro": lam1 + lam2}
+
+
+def fold_scale(base, train_idx):
+    """训练折内稳健正比例尺度 s_f = median_{n in train} mean_k base[n,k]（>0, 队友协议 §5.1）。
+
+    只用 train_idx 计算, 严禁触碰验证折; 仅作正数缩放, 不产生负值、不改变样本间排序。
+    """
+    s = float(np.median(np.asarray(base)[train_idx].mean(axis=1)))
+    assert s > 0.0, "尺度 s_f 必须为正"
+    return s
+
+
+def scale_input(base, s_f):
+    """无量纲输入 u = base / s_f（队友协议 §5.1）。"""
+    return np.asarray(base) / s_f
 
 
 def noise_sigma2(noise_floor):
@@ -53,6 +89,14 @@ def total_power_sinr(H, noise_floor):
     """问题1 口径 gamma_F = ||H||_F^2 / sigma_n^2（参照模型 R1 的载波级输入, spec §14）。"""
     fro = (np.abs(H) ** 2).sum(axis=(2, 3))                   # (N,122) = lam1+lam2
     return fro / noise_sigma2(noise_floor)[:, None]
+
+
+def total_power_raw(H):
+    """不除噪声的总增益功率 ||H||_F^2 = lam1+lam2, (N,K)。
+
+    供广义口径 gamF(theta)=||H||_F^2/(sigma^2)^theta 复用（theta=1 即问题1 gamma_F,
+    theta=0 即纯总增益功率）, 用于补全消融网格中问题1特征的去归一化分支。"""
+    return (np.abs(H) ** 2).sum(axis=(2, 3))
 
 
 def rel_std_per_sample(u):

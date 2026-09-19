@@ -135,18 +135,26 @@ def fig3():
 
 
 def fig4():
-    """逐层消融: 每步只动一层, mae_ord 阶梯下降（读 ablation_p2.csv）。"""
+    """逐层消融: 完整 2×3 网格（特征×theta）, mae_ord 阶梯下降（读 ablation_p2.csv）。
+
+    颜色按特征分组: gamF（问题1特征族）冷灰, eig（主特征模态）暖色, 最终选中模型（eig θ=0）红色。
+    """
     ab = pd.read_csv(os.path.join(C2.OUTPUT_DIR, "ablation_p2.csv"))
-    fig, ax = plt.subplots(figsize=(7.0, 3.4))
+    fig, ax = plt.subplots(figsize=(7.2, 3.6))
     x = np.arange(len(ab))
     vals = ab["mae_ord"].to_numpy(float)
     errs = ab["mae_ord_std"].to_numpy(float)
-    colors = ["#9aa5b1", "#9aa5b1", "#dd8452", "#4c9bd1", "#d62728"]
-    ax.bar(x, vals, 0.62, yerr=errs, capsize=2, color=colors[: len(ab)])
+    cmap = {("gamF", 1.0): "#9aa5b1", ("gamF", 0.5): "#aab5bf", ("gamF", 0.0): "#7f8c9b",
+            ("eig", 1.0): "#dd8452", ("eig", 0.5): "#4c9bd1", ("eig", 0.0): "#d62728"}
+    colors = [cmap.get((r.feature, round(r.theta, 3)), "#bbbbbb") for r in ab.itertuples()]
+    ax.bar(x, vals, 0.66, yerr=errs, capsize=2, color=colors)
     for xi, v in zip(x, vals):
-        ax.text(xi, v + 0.018, f"{v:.3f}", ha="center", fontsize=8)
+        ax.text(xi, v + 0.016, f"{v:.3f}", ha="center", fontsize=7.5)
     ax.set_xticks(x)
-    ax.set_xticklabels([s.replace("（", "\n（").replace(": ", ":\n") for s in ab["step"]], fontsize=7)
+    labels = [s.replace("gamma_F", "$\\gamma_F$").replace("lambda1", "$\\lambda_1$")
+              .replace("sigma^2", "$\\sigma^2$").replace("/sigma", "/$\\sigma$").replace("θ", "$θ$")
+              for s in ab["step"]]
+    ax.set_xticklabels(labels, fontsize=6.8, rotation=25, ha="right")
     ax.set_ylabel("CV Ordinal MAE ↓")
     ax.set_ylim(0.68, 0.92)
     ax.grid(axis="y", alpha=0.3)
