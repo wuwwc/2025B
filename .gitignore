@@ -1,2 +1,14 @@
 # Large competition dataset (kept locally, not pushed)
 /无线通信系统链路速率建模--数据集.rar
+/dataset/
+
+# Archive files
+*.zip
+
+# Local-only working copies of the problem statement (PDF is tracked)
+*.docx
+
+# Python caches
+__pycache__/
+*.pyc
+/problem1/cache/

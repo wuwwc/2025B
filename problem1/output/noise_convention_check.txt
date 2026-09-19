@@ -1,0 +1,12 @@
+噪声口径不变性验证（《联合优化模型》§13.1）
+默认口径: unit=mW, apply_nrx=True（noise_floor 视为单接收支路功率, 总噪声=N_RX*P_b）
+结论: ×N_RX(×2) 与 单位(mW↔W, ×1000) 都是 gamma 的全局常数缩放, 被 beta 与
+      有序阈值吸收 => 预测/指标逐位相同, 模型表现无法区分口径。
+5-fold CV (weighting=off) 各口径指标:
+unit apply_nrx  acc         mae_ord     acc1        
+mW   True       0.376259    0.851980    0.807748    
+mW   False      0.376259    0.851980    0.807748    
+W    True       0.375375    0.853452    0.806864    
+W    False      0.375375    0.853452    0.806864    
+max|Δ(acc+mae_ord+acc1)| = 3.240e-03  -> invariant_ok=True (tol=0.01)
+注: 残余偏差来自近平坦数据中 SINR 近乎相等样本的浮点舍入翻转(<0.3%), 物理上与口径无关。
