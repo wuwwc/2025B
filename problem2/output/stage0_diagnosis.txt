@@ -1,0 +1,16 @@
+问题2 Stage0 数据诊断（spec §2 / §15：跨载波差异是多核聚合不退化的前提）
+口径: sigma_n^2 = N_RX*10^(NF/10) mW（同问题1默认）。rel-std = 每样本122载波 std/mean。
+
+[train]
+  ||H||_F^2(=gamma_F输入)  rel-std mean/max = 2.338e-16 / 6.127e-16
+  lambda1               rel-std mean/max = 9.307e-02 / 1.925e-01
+  x=lambda1/sigma^2     rel-std mean/max = 9.307e-02 / 1.925e-01
+  mean(lam2/lam1)      = 0.2284
+[valid]
+  ||H||_F^2(=gamma_F输入)  rel-std mean/max = 2.346e-16 / 6.383e-16
+  lambda1               rel-std mean/max = 9.707e-02 / 1.893e-01
+  x=lambda1/sigma^2     rel-std mean/max = 9.707e-02 / 1.893e-01
+  mean(lam2/lam1)      = 0.2393
+
+结论判定：若 x 的 rel-std 显著大于 gamma_F（远超机器精度），则主特征模态输入下
+      五类核聚合存在真实差异（创新点2成立）；若同为 1e-16 量级则核聚合退化，如实记录。
